@@ -34,11 +34,6 @@ func main() {
 
 	pageCount := 0
 
-	// q, _ := queue.New(
-	// 	2, // Number of consumer threads
-	// 	&queue.InMemoryQueueStorage{MaxSize: 10000}, // Use default queue storage
-	// )
-
 	c := colly.NewCollector(
 		colly.AllowedDomains("www.markham.ca"),
 		//colly.AllowURLRevisit(),
@@ -56,6 +51,12 @@ func main() {
 		//  RandomDelay: 5 * time.Second,
 		//Delay:      5 * time.Second,
 	})
+
+	// q, _ := queue.New(
+	// 	2, // Number of consumer threads
+	// 	&queue.InMemoryQueueStorage{MaxSize: 10000}, // Use default queue storage
+	// )
+	// q.AddURL(baseUrl)
 
 	// authenticate if required
 	// err := c.Post("http://example.com/login", map[string]string{"username": "admin", "password": "admin"})
@@ -89,7 +90,7 @@ func main() {
 	c.OnHTML("a[href]", func(e *colly.HTMLElement) { // href , callback
 		link := e.Attr("href")
 		e.Request.Visit(link)
-		// q.AddURL(link) // Add URLs to the queue
+		// q.AddURL(e.Request.AbsoluteURL(link)) // Add URLs to the queue
 		//c.Visit(e.Request.AbsoluteURL(link))
 	})
 
@@ -103,9 +104,9 @@ func main() {
 		enc.Encode(webpage)
 	})
 
-	c.Visit(baseUrl)
 	//#FORPARALLEL-code-anb
 	// Wait until threads are finished
+	c.Visit(baseUrl)
 	c.Wait()
 
 	// q.AddURL(baseUrl)
