@@ -45,15 +45,10 @@ mapping := `{
 	},
 	"mappings":{
 		"properties":{
-			"url":{
-				"type":"keyword"
-			},
-			"title":{
-				"type":"geo_point"
-			},
-			"content":{
-				"type":"completion"
-			}
+			"url"		:{"type":"string", "index" : "not_analyzed" },
+			"title"		:{"type":"string"},
+			"content"	:{"type":"string"},
+			"time"		:{"type":"date"},
 		}
 	}
 }`

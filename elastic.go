@@ -12,7 +12,7 @@ func main() {
 	cfg := elasticsearch.Config{
 		Addresses: []string{
 			"http://localhost:9200",
-			"http://localhost:9201",
+			// "http://localhost:9201",
 		},
 		// Username: "foo",
 		// Password: "bar",
@@ -33,4 +33,8 @@ func main() {
 	log.Println(elasticsearch.Version)
 	log.Println(es.Info())
 
+}
+
+func info(es *elasticapi) {
+	
 }
