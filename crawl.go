@@ -1,21 +1,48 @@
 package main
 
 import (
-	"encoding/json"
+	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
+	"time"
 
 	"github.com/gocolly/colly"
 	"github.com/gocolly/colly/extensions"
+	"github.com/olivere/elastic/v7"
 )
 
 type WebPage struct {
-	Url     string `json:"url"`
-	Title   string `json:"title"`
-	Content string `json:"content"`
+	Url     string    `json:"url"`
+	Title   string    `json:"title"`
+	Content string    `json:"content"`
+	Time    time.Time `json:"time"`
 }
+
+const (
+	elasticUrl   = "http://localhost:9200"
+	indexName    = "markhamca_idx"
+	docType      = "web_page"
+	indexMapping = `{
+		"settings": {
+			"number_of_shards": 1,
+			"number_of_replicas": 1
+		},
+		// "markhamca_idx" : {
+			"mappings" : {
+				"properties" : {
+					"url" : { "type" : "text" 	},
+					"title" : { "type" : "text"	},
+					"content" : { "type" : "text"  },
+					"time" : { "type" : "date" }
+				}
+			}
+		//}
+	}`
+)
 
 func main() {
 	var baseUrl string
@@ -28,7 +55,30 @@ func main() {
 		os.Exit(1)
 	}
 
-	webpage := WebPage{}
+	//==================
+	client, err := elastic.NewClient(
+		elastic.SetURL(elasticUrl),
+		elastic.SetSniff(false),
+		elastic.SetHealthcheckInterval(10*time.Second),
+		// elastic.SetRetrier(NewCustomRetrier()),
+		elastic.SetGzip(true),
+		elastic.SetErrorLog(log.New(os.Stderr, "ELASTIC ", log.LstdFlags)),
+		elastic.SetInfoLog(log.New(os.Stdout, "", log.LstdFlags)),
+		elastic.SetHeaders(http.Header{
+			"X-Caller-Id": []string{"..."},
+		}),
+	)
+	if err != nil {
+		panic(err)
+	}
+	// _ = info(client)
+	deleteIndex(client)
+	err = createIndex(client)
+	if err != nil {
+		panic(err)
+	}
+
+	document := WebPage{}
 	// baseUrl := "https://www.coursera.org"
 	// baseUrl := "https://www.markham.ca/wps/portal/home"
 
@@ -65,25 +115,26 @@ func main() {
 	// }
 
 	c.OnRequest(func(r *colly.Request) { // url
-		webpage.Url = r.URL.String()
+		document.Url = r.URL.String()
 
 	})
 
 	c.OnResponse(func(r *colly.Response) { //get body
 		pageCount++
-		//webpage.Content = "page html body bla " // string(r.Body)
+		// document.Content = "page html body bla " // string(r.Body)
 		//urlVisited := r.Ctx.Get("url")
-		println(fmt.Sprintf("  DONE Visiting %d: %s", pageCount, webpage.Url))
+		println(fmt.Sprintf("  DONE Visiting %d: %s", pageCount, document.Url))
 
 	})
 
 	c.OnHTML("html head title", func(e *colly.HTMLElement) { // Title
 		//e.Ctx.Put("title", e.Text)
-		webpage.Title = e.Text
+		document.Title = e.Text
 	})
 	c.OnHTML("html body", func(e *colly.HTMLElement) { // Body / content
 		//e.Ctx.Put("title", e.Text)
-		webpage.Content = "my body bla" // e.Text
+		document.Content = e.Text
+		document.Time = time.Now()
 	})
 
 	// On every a element which has href attribute
@@ -99,9 +150,10 @@ func main() {
 	})
 
 	c.OnScraped(func(r *colly.Response) { // DONE
-		enc := json.NewEncoder(os.Stdout)
-		enc.SetIndent("", "  ")
-		enc.Encode(webpage)
+		// enc := json.NewEncoder(os.Stdout)
+		// enc.SetIndent("", "  ")
+		// enc.Encode(document)
+		insertDocument(client, document)
 	})
 
 	//#FORPARALLEL-code-anb
@@ -112,3 +164,48 @@ func main() {
 	// q.AddURL(baseUrl)
 	// q.Run(c)
 }
+
+func insertDocument(client *elastic.Client, document WebPage) error {
+	_, err := client.Index().
+		Index(indexName).
+		// Type(docType).
+		BodyJson(document).
+		Id(document.Url).
+		Do(context.Background())
+
+	if err != nil {
+		return err
+	}
+	_, _ = client.Flush().Index(indexName).Do(context.Background())
+	return nil
+}
+
+func createIndex(client *elastic.Client) error {
+	exists, err := client.IndexExists(indexName).Do(context.Background())
+	if err != nil {
+		return err
+	}
+	if exists {
+		fmt.Printf("Index already exists : %s\n", indexName)
+		return nil
+	}
+
+	res, err := client.CreateIndex(indexName).
+		Body(indexMapping).
+		Do(context.Background())
+
+	if err != nil {
+		return err
+	}
+	if !res.Acknowledged {
+		return errors.New("CreateIndex was not acknowledged. Check that timeout value is correct.")
+	}
+	fmt.Printf("Index newly Created  : %s\n", indexName)
+
+	// return addWebPagesToIndex(client)
+	return nil
+}
+func deleteIndex(client *elastic.Client) error {
+	_, _ = client.DeleteIndex(indexName).Do(context.Background())
+	return nil
+} //deleteIndex
