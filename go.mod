@@ -1,4 +1,4 @@
-module crawl-gocolly
+module crawl
 
 go 1.14
 

@@ -257,7 +257,6 @@ func idQueryExample(client *elastic.Client) error {
 
 func deleteIndex(client *elastic.Client) error {
 	_, _ = client.DeleteIndex(indexName).Do(context.Background())
-
 	return nil
 } //deleteIndex
 

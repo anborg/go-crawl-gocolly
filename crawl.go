@@ -10,22 +10,17 @@ import (
 	"os"
 	"time"
 
+	"crawl/domain"
+
 	"github.com/gocolly/colly"
 	"github.com/gocolly/colly/extensions"
 	"github.com/olivere/elastic/v7"
 )
 
-type WebPage struct {
-	Url     string    `json:"url"`
-	Title   string    `json:"title"`
-	Content string    `json:"content"`
-	Time    time.Time `json:"time"`
-}
-
 const (
 	elasticUrl   = "http://localhost:9200"
 	indexName    = "markhamca_idx"
-	docType      = "web_page"
+	// docType      = "webpages"
 	indexMapping = `{
 		"settings": {
 			"number_of_shards": 1,
@@ -56,6 +51,7 @@ func main() {
 	}
 
 	//==================
+	// var client elastic.Client
 	client, err := elastic.NewClient(
 		elastic.SetURL(elasticUrl),
 		elastic.SetSniff(false),
@@ -78,7 +74,7 @@ func main() {
 		panic(err)
 	}
 
-	document := WebPage{}
+	document := domain.WebPage{}
 	// baseUrl := "https://www.coursera.org"
 	// baseUrl := "https://www.markham.ca/wps/portal/home"
 
@@ -124,6 +120,7 @@ func main() {
 		// document.Content = "page html body bla " // string(r.Body)
 		//urlVisited := r.Ctx.Get("url")
 		println(fmt.Sprintf("  DONE Visiting %d: %s", pageCount, document.Url))
+		document.Print()
 
 	})
 
@@ -154,6 +151,7 @@ func main() {
 		// enc.SetIndent("", "  ")
 		// enc.Encode(document)
 		insertDocument(client, document)
+		document.Print()
 	})
 
 	//#FORPARALLEL-code-anb
@@ -165,12 +163,12 @@ func main() {
 	// q.Run(c)
 }
 
-func insertDocument(client *elastic.Client, document WebPage) error {
+func insertDocument(client *elastic.Client, document domain.WebPage) error {
 	_, err := client.Index().
 		Index(indexName).
 		// Type(docType).
 		BodyJson(document).
-		Id(document.Url).
+		// Id(document.Url). //Make id automatic - dupes check
 		Do(context.Background())
 
 	if err != nil {
@@ -192,6 +190,7 @@ func createIndex(client *elastic.Client) error {
 
 	res, err := client.CreateIndex(indexName).
 		Body(indexMapping).
+		// Type(webpages).
 		Do(context.Background())
 
 	if err != nil {
