@@ -1,5 +1,11 @@
 # crawl-gocolly
 
+TODO:
+- create a flag to do indexing explicitly e.g -index http://localhost:9200
+- neatly seaprate elastic from crawling
+
+
+
 
 go build crawl.go
 ./crawl -url https://www.markham.ca/wps/portal/home

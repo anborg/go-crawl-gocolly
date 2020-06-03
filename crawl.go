@@ -10,7 +10,7 @@ import (
 	"os"
 	"time"
 
-	"crawl/domain"
+	domain "crawl/model"
 
 	"github.com/gocolly/colly"
 	"github.com/gocolly/colly/extensions"
@@ -18,24 +18,23 @@ import (
 )
 
 const (
-	elasticUrl   = "http://localhost:9200"
-	indexName    = "markhamca_idx"
+	elasticUrl = "http://localhost:9200"
+	indexName  = "mywebsite_idx"
 	// docType      = "webpages"
 	indexMapping = `{
 		"settings": {
 			"number_of_shards": 1,
 			"number_of_replicas": 1
 		},
-		// "markhamca_idx" : {
-			"mappings" : {
-				"properties" : {
-					"url" : { "type" : "text" 	},
-					"title" : { "type" : "text"	},
-					"content" : { "type" : "text"  },
-					"time" : { "type" : "date" }
-				}
+		"mappings" : {
+			"properties" : {
+				"url" : { "type" : "text" 	},
+				"title" : { "type" : "text"	},
+				"content" : { "type" : "text"  },
+				"time" : { "type" : "date" }
 			}
-		//}
+		}
+
 	}`
 )
 
@@ -75,8 +74,6 @@ func main() {
 	}
 
 	document := domain.WebPage{}
-	// baseUrl := "https://www.coursera.org"
-	// baseUrl := "https://www.markham.ca/wps/portal/home"
 
 	pageCount := 0
 
@@ -117,29 +114,22 @@ func main() {
 
 	c.OnResponse(func(r *colly.Response) { //get body
 		pageCount++
-		// document.Content = "page html body bla " // string(r.Body)
-		//urlVisited := r.Ctx.Get("url")
-		println(fmt.Sprintf("  DONE Visiting %d: %s", pageCount, document.Url))
+		println(fmt.Sprintf("  DONE Visiting %d: %s", pageCount, r.Request.URL)) //document.Url
 		document.Print()
 
 	})
 
 	c.OnHTML("html head title", func(e *colly.HTMLElement) { // Title
-		//e.Ctx.Put("title", e.Text)
 		document.Title = e.Text
 	})
 	c.OnHTML("html body", func(e *colly.HTMLElement) { // Body / content
-		//e.Ctx.Put("title", e.Text)
 		document.Content = e.Text
 		document.Time = time.Now()
 	})
 
-	// On every a element which has href attribute
 	c.OnHTML("a[href]", func(e *colly.HTMLElement) { // href , callback
 		link := e.Attr("href")
-		e.Request.Visit(link)
-		// q.AddURL(e.Request.AbsoluteURL(link)) // Add URLs to the queue
-		//c.Visit(e.Request.AbsoluteURL(link))
+		c.Visit(e.Request.AbsoluteURL(link))
 	})
 
 	c.OnError(func(r *colly.Response, err error) { // Set error handler
@@ -147,19 +137,16 @@ func main() {
 	})
 
 	c.OnScraped(func(r *colly.Response) { // DONE
-		// enc := json.NewEncoder(os.Stdout)
-		// enc.SetIndent("", "  ")
-		// enc.Encode(document)
 		insertDocument(client, document)
 		document.Print()
 	})
 
 	//#FORPARALLEL-code-anb
-	// Wait until threads are finished
+	// Wait until threads are done
 	c.Visit(baseUrl)
 	c.Wait()
 
-	// q.AddURL(baseUrl)
+	// q.AddURL(baseUrl) //TODO later add qeueue functionality
 	// q.Run(c)
 }
 
