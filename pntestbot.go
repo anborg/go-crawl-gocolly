@@ -42,6 +42,7 @@ func main() {
 	allowExt := ".xaml"
 	configExt := ".config.json"
 	baseLogDir := "C:/temp/uitest-logs/"
+	logDir := baseLogDir + time.Now().Format("20060102-150405")
 
 	exepath := "C:/apps/uipath/app-20.4.1/uirobot.exe"
 	root := "C:/data/projects_uipath/mm-ui-tests"
@@ -51,10 +52,10 @@ func main() {
 		panic(err)
 	}
 	for _, file := range files {
-		fmt.Println(file)
+		// fmt.Println(file)
 		dir, name, _ := splitDirAndNameAndExt(file)
-		jsonFileName := dir + name + configExt //"C:/data/projects_python/pyrobot-rest/timeInCity.config.json"
-		println(jsonFileName)
+		jsonFileName := dir + name + configExt
+		// fmt.Println(jsonFileName)
 		jsonFile, err := os.Open(jsonFileName)
 		if err != nil {
 			fmt.Println(err)
@@ -65,14 +66,14 @@ func main() {
 		}
 		var jsonMap map[string]interface{}
 		json.Unmarshal([]byte(byteValue), &jsonMap)
-		jsonMap["logDirectory"] = baseLogDir + time.Now().Format("20060102-150405")
-		fmt.Println(jsonMap["cityName"])
+		jsonMap["logDirectory"] = logDir
+		fmt.Println("\n", jsonMap["cityName"])
 		jsonString, err := json.Marshal(jsonMap)
 		if err != nil {
 			fmt.Println(err)
 		}
-		print(exepath)
-		print(jsonString)
+		// fmt.Println(exepath)
+		fmt.Println(string(jsonString))
 
 		cmd := exec.Command(exepath, "execute", "--file", file, "--input", string(jsonString))
 		cmd.Stdout = os.Stdout
