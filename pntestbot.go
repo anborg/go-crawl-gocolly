@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+	"bytes"
 )
 
 func splitDirAndNameAndExt(path string) (string, string, string) {
@@ -38,22 +39,26 @@ func visit(files *[]string, allowFilePrefix string, allowFileExtsion string) fil
 
 func main() {
 	var files []string
-	allowPrefix := "demo_tc_"
+	//allowPrefix := "demo_tc_"
+	allowPrefix := "tc_"
 	allowExt := ".xaml"
 	configExt := ".config.json"
 	baseLogDir := "C:/temp/uitest-logs/"
 	logDir := baseLogDir + time.Now().Format("20060102-150405")
 
-	exepath := "C:/apps/uipath/app-20.4.1/uirobot.exe"
-	root := "C:/data/projects_uipath/mm-ui-tests"
-
-	err := filepath.Walk(root, visit(&files, allowPrefix, allowExt))
+	baseBinaryPath := "Q:/Teams/Application & GIS/Applications/Support/AutoTest"
+	exepath := baseBinaryPath + "/app-20.4.1/uirobot.exe"
+	botBasePath := "C:/data/projects_uipath"
+	botfileRootPath := botBasePath + "/mm-ui-tests"
+	err := filepath.Walk(botfileRootPath, visit(&files, allowPrefix, allowExt))
 	if err != nil {
 		panic(err)
 	}
 	for _, file := range files {
 		// fmt.Println(file)
 		dir, name, _ := splitDirAndNameAndExt(file)
+		testcaseName := filepath.Base(dir)  + "-" + strings.TrimPrefix(name, allowPrefix)
+		//fmt.Println("tcname=", testcaseName   , "\n")
 		jsonFileName := dir + name + configExt
 		// fmt.Println(jsonFileName)
 		jsonFile, err := os.Open(jsonFileName)
@@ -67,20 +72,22 @@ func main() {
 		var jsonMap map[string]interface{}
 		json.Unmarshal([]byte(byteValue), &jsonMap)
 		jsonMap["logDirectory"] = logDir
-		fmt.Println("\n", jsonMap["cityName"])
+		jsonMap["testcaseName"] = testcaseName
+
+		fmt.Println("logdir=", jsonMap["logDirectory"], "\n")
 		jsonString, err := json.Marshal(jsonMap)
 		if err != nil {
 			fmt.Println(err)
 		}
-		// fmt.Println(exepath)
-		fmt.Println(string(jsonString))
-
 		cmd := exec.Command(exepath, "execute", "--file", file, "--input", string(jsonString))
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-		err1 := cmd.Run()
+		out, err1 := cmd.Output()
 		if err1 != nil {
 			log.Fatalf("cmd.Run() failed with %s\n", err1)
 		}
+		outJsonBuf := &bytes.Buffer{}
+        if err := json.Indent( outJsonBuf, (out), "", "    "); err != nil {
+		 panic(err)
+		}
+		fmt.Println(outJsonBuf.String())
 	}
 }
